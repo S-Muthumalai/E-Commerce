@@ -1,6 +1,14 @@
-import { users, type User, type InsertUser, products, type Product, type InsertProduct, priceHistory, type PriceHistory, type InsertPriceHistory, wishlists, type Wishlist, type InsertWishlist } from "@shared/schema";
+import { 
+  users, type User, type InsertUser, 
+  products, type Product, type InsertProduct, 
+  priceHistory, type PriceHistory, type InsertPriceHistory, 
+  wishlists, type Wishlist, type InsertWishlist,
+  cartItems, type CartItem, type InsertCartItem,
+  orders, type Order, type InsertOrder,
+  orderItems, type OrderItem, type InsertOrderItem
+} from "@shared/schema";
 import { db } from "./db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import connectPg from "connect-pg-simple";
 import session from "express-session";
 import { pool } from "./db";
@@ -30,6 +38,19 @@ export interface IStorage {
   getWishlistsWithProducts(userId: number): Promise<(Wishlist & { product: Product })[]>;
   addToWishlist(wishlist: InsertWishlist): Promise<Wishlist>;
   removeFromWishlist(userId: number, productId: number): Promise<boolean>;
+  
+  // Cart operations
+  getCartItems(userId: number): Promise<(CartItem & { product: Product })[]>;
+  addToCart(cartItem: InsertCartItem): Promise<CartItem>;
+  updateCartItemQuantity(userId: number, productId: number, quantity: number): Promise<CartItem | undefined>;
+  removeFromCart(userId: number, productId: number): Promise<boolean>;
+  clearCart(userId: number): Promise<boolean>;
+  
+  // Order operations
+  createOrder(order: InsertOrder, items: Omit<InsertOrderItem, 'orderId'>[]): Promise<Order>;
+  getOrders(userId: number): Promise<Order[]>;
+  getOrder(orderId: number): Promise<(Order & { items: (OrderItem & { product: Product })[] }) | undefined>;
+  updateOrderStatus(orderId: number, status: Order['status']): Promise<Order | undefined>;
   
   // Session store
   sessionStore: session.Store;
@@ -206,6 +227,208 @@ export class DatabaseStorage implements IStorage {
       );
     
     return result !== null;
+  }
+  
+  // Cart operations
+  async getCartItems(userId: number): Promise<(CartItem & { product: Product })[]> {
+    const userCartItems = await db
+      .select()
+      .from(cartItems)
+      .where(eq(cartItems.userId, userId));
+      
+    const result: (CartItem & { product: Product })[] = [];
+    
+    for (const cartItem of userCartItems) {
+      const [product] = await db
+        .select()
+        .from(products)
+        .where(eq(products.id, cartItem.productId));
+      
+      if (product) {
+        result.push({
+          ...cartItem,
+          product,
+        });
+      }
+    }
+    
+    return result;
+  }
+  
+  async addToCart(insertCartItem: InsertCartItem): Promise<CartItem> {
+    // Check if product is already in cart
+    const [existingItem] = await db
+      .select()
+      .from(cartItems)
+      .where(
+        and(
+          eq(cartItems.userId, insertCartItem.userId),
+          eq(cartItems.productId, insertCartItem.productId)
+        )
+      );
+    
+    if (existingItem) {
+      // If it exists, update the quantity
+      return await this.updateCartItemQuantity(
+        insertCartItem.userId,
+        insertCartItem.productId,
+        existingItem.quantity + (insertCartItem.quantity || 1)
+      ) as CartItem;
+    }
+    
+    // Otherwise insert a new item
+    const [cartItem] = await db
+      .insert(cartItems)
+      .values(insertCartItem)
+      .returning();
+    
+    return cartItem;
+  }
+  
+  async updateCartItemQuantity(userId: number, productId: number, quantity: number): Promise<CartItem | undefined> {
+    // If quantity is 0 or less, remove the item
+    if (quantity <= 0) {
+      await this.removeFromCart(userId, productId);
+      return undefined;
+    }
+    
+    // Update the quantity
+    const [updatedCartItem] = await db
+      .update(cartItems)
+      .set({ quantity })
+      .where(
+        and(
+          eq(cartItems.userId, userId),
+          eq(cartItems.productId, productId)
+        )
+      )
+      .returning();
+    
+    return updatedCartItem;
+  }
+  
+  async removeFromCart(userId: number, productId: number): Promise<boolean> {
+    const result = await db
+      .delete(cartItems)
+      .where(
+        and(
+          eq(cartItems.userId, userId),
+          eq(cartItems.productId, productId)
+        )
+      );
+    
+    return result !== null;
+  }
+  
+  async clearCart(userId: number): Promise<boolean> {
+    const result = await db
+      .delete(cartItems)
+      .where(eq(cartItems.userId, userId));
+    
+    return result !== null;
+  }
+  
+  // Order operations
+  async createOrder(orderData: InsertOrder, items: Omit<InsertOrderItem, 'orderId'>[]): Promise<Order> {
+    // Start a transaction
+    return await db.transaction(async (tx) => {
+      // Create the order
+      const [order] = await tx
+        .insert(orders)
+        .values(orderData)
+        .returning();
+      
+      // Add all the order items
+      for (const item of items) {
+        await tx
+          .insert(orderItems)
+          .values({
+            orderId: order.id,
+            productId: item.productId,
+            quantity: item.quantity,
+            price: item.price,
+          });
+          
+        // Update product stock
+        const [product] = await tx
+          .select()
+          .from(products)
+          .where(eq(products.id, item.productId));
+          
+        if (product) {
+          const newStock = Math.max(0, product.stock - item.quantity);
+          await tx
+            .update(products)
+            .set({ stock: newStock })
+            .where(eq(products.id, item.productId));
+        }
+      }
+      
+      // Clear the user's cart
+      await tx
+        .delete(cartItems)
+        .where(eq(cartItems.userId, orderData.userId));
+      
+      return order;
+    });
+  }
+  
+  async getOrders(userId: number): Promise<Order[]> {
+    return await db
+      .select()
+      .from(orders)
+      .where(eq(orders.userId, userId))
+      .orderBy(sql`${orders.createdAt} DESC`);
+  }
+  
+  async getOrder(orderId: number): Promise<(Order & { items: (OrderItem & { product: Product })[] }) | undefined> {
+    const [order] = await db
+      .select()
+      .from(orders)
+      .where(eq(orders.id, orderId));
+    
+    if (!order) {
+      return undefined;
+    }
+    
+    const orderItemList = await db
+      .select()
+      .from(orderItems)
+      .where(eq(orderItems.orderId, orderId));
+      
+    const items: (OrderItem & { product: Product })[] = [];
+    
+    for (const item of orderItemList) {
+      const [product] = await db
+        .select()
+        .from(products)
+        .where(eq(products.id, item.productId));
+        
+      if (product) {
+        items.push({
+          ...item,
+          product,
+        });
+      }
+    }
+    
+    return {
+      ...order,
+      items,
+    };
+  }
+  
+  async updateOrderStatus(orderId: number, status: Order['status']): Promise<Order | undefined> {
+    const [updatedOrder] = await db
+      .update(orders)
+      .set({ 
+        status,
+        updatedAt: new Date(),
+      })
+      .where(eq(orders.id, orderId))
+      .returning();
+    
+    return updatedOrder;
   }
   
   // Seed initial data function that can be called after DB setup

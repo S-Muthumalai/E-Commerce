@@ -1,6 +1,14 @@
-import { users, type User, type InsertUser, products, type Product, type InsertProduct, priceHistory, type PriceHistory, type InsertPriceHistory, wishlists, type Wishlist, type InsertWishlist } from "@shared/schema";
+import { 
+  users, type User, type InsertUser, 
+  products, type Product, type InsertProduct, 
+  priceHistory, type PriceHistory, type InsertPriceHistory, 
+  wishlists, type Wishlist, type InsertWishlist,
+  cartItems, type CartItem, type InsertCartItem,
+  orders, type Order, type InsertOrder,
+  orderItems, type OrderItem, type InsertOrderItem
+} from "@shared/schema";
 import { db } from "./db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import connectPg from "connect-pg-simple";
 import session from "express-session";
 import { pool } from "./db";
@@ -15,6 +23,7 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUserEmail?(userId: number, email: string): Promise<User | undefined>;
   
   // Product operations
   getProducts(): Promise<Product[]>;
@@ -33,8 +42,24 @@ export interface IStorage {
   addToWishlist(wishlist: InsertWishlist): Promise<Wishlist>;
   removeFromWishlist(userId: number, productId: number): Promise<boolean>;
   
+  // Cart operations
+  getCartItems(userId: number): Promise<(CartItem & { product: Product })[]>;
+  addToCart(cartItem: InsertCartItem): Promise<CartItem>;
+  updateCartItemQuantity(userId: number, productId: number, quantity: number): Promise<CartItem | undefined>;
+  removeFromCart(userId: number, productId: number): Promise<boolean>;
+  clearCart(userId: number): Promise<boolean>;
+  
+  // Order operations
+  createOrder(order: InsertOrder, items: Omit<InsertOrderItem, 'orderId'>[]): Promise<Order>;
+  getOrders(userId: number): Promise<Order[]>;
+  getOrder(orderId: number): Promise<(Order & { items: (OrderItem & { product: Product })[] }) | undefined>;
+  updateOrderStatus(orderId: number, status: Order['status']): Promise<Order | undefined>;
+  
   // Session store
   sessionStore: session.Store;
+  
+  // Data seeding
+  seedInitialData?(): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -42,10 +67,16 @@ export class MemStorage implements IStorage {
   private products: Map<number, Product>;
   private priceHistories: Map<number, PriceHistory>;
   private wishlists: Map<number, Wishlist>;
+  private cartItems: Map<number, CartItem>;
+  private orders: Map<number, Order>;
+  private orderItems: Map<number, OrderItem>;
   private userIdCounter: number;
   private productIdCounter: number;
   private priceHistoryIdCounter: number;
   private wishlistIdCounter: number;
+  private cartItemIdCounter: number;
+  private orderIdCounter: number;
+  private orderItemIdCounter: number;
   sessionStore: session.SessionStore;
 
   constructor() {
@@ -53,10 +84,16 @@ export class MemStorage implements IStorage {
     this.products = new Map();
     this.priceHistories = new Map();
     this.wishlists = new Map();
+    this.cartItems = new Map();
+    this.orders = new Map();
+    this.orderItems = new Map();
     this.userIdCounter = 1;
     this.productIdCounter = 1;
     this.priceHistoryIdCounter = 1;
     this.wishlistIdCounter = 1;
+    this.cartItemIdCounter = 1;
+    this.orderIdCounter = 1;
+    this.orderItemIdCounter = 1;
     this.sessionStore = new MemoryStore({
       checkPeriod: 86400000, // 24h
     });
@@ -205,6 +242,198 @@ export class MemStorage implements IStorage {
     return this.wishlists.delete(wishlist.id);
   }
 
+  // Cart operations
+  async getCartItems(userId: number): Promise<(CartItem & { product: Product })[]> {
+    const userCartItems = Array.from(this.cartItems.values())
+      .filter(cartItem => cartItem.userId === userId);
+    
+    return userCartItems.map(cartItem => {
+      const product = this.products.get(cartItem.productId);
+      if (!product) {
+        throw new Error(`Product not found for cart item: ${cartItem.id}`);
+      }
+      
+      return {
+        ...cartItem,
+        product,
+      };
+    });
+  }
+  
+  async addToCart(insertCartItem: InsertCartItem): Promise<CartItem> {
+    // Check if product is already in cart
+    const existingItem = Array.from(this.cartItems.values()).find(
+      item => item.userId === insertCartItem.userId && item.productId === insertCartItem.productId
+    );
+    
+    if (existingItem) {
+      // If it exists, update the quantity
+      return await this.updateCartItemQuantity(
+        insertCartItem.userId,
+        insertCartItem.productId,
+        existingItem.quantity + (insertCartItem.quantity || 1)
+      ) as CartItem;
+    }
+    
+    // Otherwise insert a new item
+    const id = this.cartItemIdCounter++;
+    const now = new Date();
+    const cartItem: CartItem = { 
+      ...insertCartItem, 
+      id,
+      quantity: insertCartItem.quantity || 1,
+      addedAt: now
+    };
+    
+    this.cartItems.set(id, cartItem);
+    return cartItem;
+  }
+  
+  async updateCartItemQuantity(userId: number, productId: number, quantity: number): Promise<CartItem | undefined> {
+    // If quantity is 0 or less, remove the item
+    if (quantity <= 0) {
+      await this.removeFromCart(userId, productId);
+      return undefined;
+    }
+    
+    // Find the cart item
+    const cartItem = Array.from(this.cartItems.values()).find(
+      item => item.userId === userId && item.productId === productId
+    );
+    
+    if (!cartItem) {
+      return undefined;
+    }
+    
+    // Update the quantity
+    const updatedCartItem: CartItem = {
+      ...cartItem,
+      quantity
+    };
+    
+    this.cartItems.set(cartItem.id, updatedCartItem);
+    return updatedCartItem;
+  }
+  
+  async removeFromCart(userId: number, productId: number): Promise<boolean> {
+    const cartItem = Array.from(this.cartItems.values()).find(
+      item => item.userId === userId && item.productId === productId
+    );
+    
+    if (!cartItem) {
+      return false;
+    }
+    
+    return this.cartItems.delete(cartItem.id);
+  }
+  
+  async clearCart(userId: number): Promise<boolean> {
+    const userCartItems = Array.from(this.cartItems.values())
+      .filter(item => item.userId === userId);
+    
+    for (const item of userCartItems) {
+      this.cartItems.delete(item.id);
+    }
+    
+    return true;
+  }
+  
+  // Order operations
+  async createOrder(orderData: InsertOrder, items: Omit<InsertOrderItem, 'orderId'>[]): Promise<Order> {
+    // Create the order
+    const id = this.orderIdCounter++;
+    const now = new Date();
+    const order: Order = {
+      ...orderData,
+      id,
+      createdAt: now,
+      updatedAt: now,
+      status: orderData.status || 'pending',
+    };
+    
+    this.orders.set(id, order);
+    
+    // Add all the order items
+    for (const item of items) {
+      const orderItemId = this.orderItemIdCounter++;
+      const orderItem: OrderItem = {
+        id: orderItemId,
+        orderId: id,
+        productId: item.productId,
+        quantity: item.quantity,
+        price: item.price,
+      };
+      
+      this.orderItems.set(orderItemId, orderItem);
+      
+      // Update product stock
+      const product = this.products.get(item.productId);
+      if (product) {
+        const newStock = Math.max(0, product.stock - item.quantity);
+        this.products.set(product.id, {
+          ...product,
+          stock: newStock,
+        });
+      }
+    }
+    
+    // Clear the user's cart
+    await this.clearCart(orderData.userId);
+    
+    return order;
+  }
+  
+  async getOrders(userId: number): Promise<Order[]> {
+    return Array.from(this.orders.values())
+      .filter(order => order.userId === userId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+  
+  async getOrder(orderId: number): Promise<(Order & { items: (OrderItem & { product: Product })[] }) | undefined> {
+    const order = this.orders.get(orderId);
+    
+    if (!order) {
+      return undefined;
+    }
+    
+    const orderItemList = Array.from(this.orderItems.values())
+      .filter(item => item.orderId === orderId);
+      
+    const items: (OrderItem & { product: Product })[] = [];
+    
+    for (const item of orderItemList) {
+      const product = this.products.get(item.productId);
+      if (product) {
+        items.push({
+          ...item,
+          product,
+        });
+      }
+    }
+    
+    return {
+      ...order,
+      items,
+    };
+  }
+  
+  async updateOrderStatus(orderId: number, status: Order['status']): Promise<Order | undefined> {
+    const order = this.orders.get(orderId);
+    
+    if (!order) {
+      return undefined;
+    }
+    
+    const updatedOrder: Order = {
+      ...order,
+      status,
+      updatedAt: new Date(),
+    };
+    
+    this.orders.set(orderId, updatedOrder);
+    return updatedOrder;
+  }
+  
   // Initialize sample products
   private async initSampleProducts() {
     const sampleProducts: InsertProduct[] = [
