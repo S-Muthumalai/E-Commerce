@@ -6,7 +6,8 @@ import {
   BarChart3,
   Tag,
   Bell,
-  Settings
+  Settings,
+  Heart
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link, useLocation } from "wouter";

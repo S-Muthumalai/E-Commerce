@@ -71,6 +71,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const productId = parseInt(req.params.id, 10);
       const validatedData = insertProductSchema.partial().parse(req.body);
       
+      // Check if price is being updated
+      if (validatedData.price !== undefined) {
+        // Get current product to compare prices
+        const currentProduct = await storage.getProduct(productId);
+        
+        if (currentProduct && validatedData.price !== currentProduct.price) {
+          // Record the price change in price history
+          await storage.createPriceHistory({
+            productId,
+            price: validatedData.price,
+            date: new Date()
+          });
+          
+          // Check if this is a price drop and notify users
+          if (validatedData.price < currentProduct.price) {
+            // Import dynamically to avoid circular dependency
+            const { checkPriceDropAndNotify } = await import('./email-service');
+            checkPriceDropAndNotify(productId, validatedData.price);
+          }
+        }
+      }
+      
       const updatedProduct = await storage.updateProduct(productId, validatedData);
       
       if (!updatedProduct) {
@@ -179,6 +201,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
+  });
+  
+  // Update user's email preferences
+  app.put("/api/user/email", async (req, res, next) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      
+      const { email } = req.body;
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+      
+      // Update user email in database
+      const updatedUser = await storage.updateUserEmail(req.user.id, email);
+      
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      res.json({
+        id: updatedUser.id,
+        username: updatedUser.username,
+        email: updatedUser.email,
+        isAdmin: updatedUser.isAdmin
+      });
     } catch (err) {
       next(err);
     }
