@@ -11,8 +11,8 @@ import { AddProductModal, EditProductModal, DeleteProductModal } from "@/compone
 export default function HomePage() {
   // States for filtering and sorting
   const [searchQuery, setSearchQuery] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("");
-  const [stockFilter, setStockFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [stockFilter, setStockFilter] = useState("all");
   const [sortConfig, setSortConfig] = useState<{field: string, direction: 'asc' | 'desc'} | null>(null);
   
   // States for modals
@@ -42,7 +42,7 @@ export default function HomePage() {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                        (product.description && product.description.toLowerCase().includes(searchQuery.toLowerCase()));
     
-    const matchesCategory = categoryFilter ? product.category === categoryFilter : true;
+    const matchesCategory = categoryFilter && categoryFilter !== 'all' ? product.category === categoryFilter : true;
     
     let matchesStock = true;
     if (stockFilter === 'in_stock') {
@@ -111,8 +111,8 @@ export default function HomePage() {
   // Handle filter reset
   const handleResetFilters = () => {
     setSearchQuery("");
-    setCategoryFilter("");
-    setStockFilter("");
+    setCategoryFilter("all");
+    setStockFilter("all");
     setSortConfig(null);
   };
   

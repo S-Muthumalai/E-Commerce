@@ -59,7 +59,7 @@ export default function ProductSearch({
                 <SelectValue placeholder="All Categories" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Categories</SelectItem>
+                <SelectItem value="all">All Categories</SelectItem>
                 {categories.map((category) => (
                   <SelectItem key={category} value={category}>
                     {category}
@@ -76,7 +76,7 @@ export default function ProductSearch({
                 <SelectValue placeholder="All Stock Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Stock Status</SelectItem>
+                <SelectItem value="all">All Stock Status</SelectItem>
                 <SelectItem value="in_stock">In Stock</SelectItem>
                 <SelectItem value="low_stock">Low Stock</SelectItem>
                 <SelectItem value="out_of_stock">Out of Stock</SelectItem>
@@ -89,7 +89,7 @@ export default function ProductSearch({
               variant="outline"
               className="w-full"
               onClick={onResetFilters}
-              disabled={!searchQuery && !categoryFilter && !stockFilter}
+              disabled={!searchQuery && categoryFilter === "all" && stockFilter === "all"}
             >
               <XCircle className="h-4 w-4 mr-2" />
               Reset Filters
