@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1744631651364,
+      "tag": "0000_charming_dexter_bennett",
+      "breakpoints": true
+    }
+  ]
+}
