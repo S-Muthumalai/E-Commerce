@@ -1,6 +1,7 @@
-import { pgTable, text, serial, integer, boolean, doublePrecision, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, doublePrecision, timestamp, primaryKey } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { relations } from "drizzle-orm";
 
 // User schema
 export const users = pgTable("users", {
@@ -61,6 +62,34 @@ export const insertWishlistSchema = createInsertSchema(wishlists).pick({
   userId: true,
   productId: true,
 });
+
+// Define relations
+export const usersRelations = relations(users, ({ many }) => ({
+  wishlists: many(wishlists),
+}));
+
+export const productsRelations = relations(products, ({ many }) => ({
+  priceHistory: many(priceHistory),
+  wishlists: many(wishlists),
+}));
+
+export const priceHistoryRelations = relations(priceHistory, ({ one }) => ({
+  product: one(products, {
+    fields: [priceHistory.productId],
+    references: [products.id],
+  }),
+}));
+
+export const wishlistsRelations = relations(wishlists, ({ one }) => ({
+  user: one(users, {
+    fields: [wishlists.userId],
+    references: [users.id],
+  }),
+  product: one(products, {
+    fields: [wishlists.productId],
+    references: [products.id],
+  }),
+}));
 
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
