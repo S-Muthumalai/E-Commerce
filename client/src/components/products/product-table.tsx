@@ -9,7 +9,11 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowDownUp, Pencil, Trash, Eye, Loader2 } from "lucide-react";
+import { ArrowDownUp, Pencil, Trash, Eye, Loader2, Heart, Package } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 
 interface ProductTableProps {
@@ -29,14 +33,50 @@ export default function ProductTable({
   onEdit,
   onDelete,
 }: ProductTableProps) {
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  // Mutation to add product to wishlist
+  const addToWishlistMutation = useMutation({
+    mutationFn: async (productId: number) => {
+      await apiRequest("POST", "/api/wishlist", { productId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/wishlist"] });
+      toast({
+        title: "Added to wishlist",
+        description: "The product has been added to your wishlist.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error adding to wishlist",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleAddToWishlist = (productId: number) => {
+    if (user) {
+      addToWishlistMutation.mutate(productId);
+    } else {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to add items to your wishlist",
+        variant: "destructive",
+      });
+    }
+  };
+
   const renderStockBadge = (stock: number) => {
     if (stock === 0) {
       return <Badge variant="destructive" className="w-24 justify-center">Out of Stock</Badge>;
     }
     if (stock <= 5) {
-      return <Badge variant="warning" className="w-24 justify-center bg-amber-500">Low Stock</Badge>;
+      return <Badge variant="secondary" className="w-24 justify-center bg-amber-500">Low Stock</Badge>;
     }
-    return <Badge variant="success" className="w-24 justify-center bg-green-600">In Stock</Badge>;
+    return <Badge variant="outline" className="w-24 justify-center bg-green-600 text-white">In Stock</Badge>;
   };
 
   return (
@@ -117,11 +157,17 @@ export default function ProductTable({
                   <TableRow key={product.id}>
                     <TableCell className="font-medium">#{product.id}</TableCell>
                     <TableCell>
-                      <img
-                        src={product.imageUrl}
-                        alt={product.name}
-                        className="h-14 w-14 rounded object-cover"
-                      />
+                      {product.imageUrl ? (
+                        <img
+                          src={product.imageUrl}
+                          alt={product.name}
+                          className="h-14 w-14 rounded object-cover"
+                        />
+                      ) : (
+                        <div className="h-14 w-14 rounded bg-gray-200 flex items-center justify-center">
+                          <Package className="h-6 w-6 text-gray-500" />
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell className="font-medium">{product.name}</TableCell>
                     <TableCell>{product.category}</TableCell>
@@ -152,6 +198,19 @@ export default function ProductTable({
                           onClick={() => onEdit(product)}
                         >
                           <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => handleAddToWishlist(product.id)}
+                          className={addToWishlistMutation.isPending && addToWishlistMutation.variables === product.id ? "opacity-50" : ""}
+                          disabled={addToWishlistMutation.isPending && addToWishlistMutation.variables === product.id}
+                        >
+                          {addToWishlistMutation.isPending && addToWishlistMutation.variables === product.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Heart className="h-4 w-4 text-red-500" />
+                          )}
                         </Button>
                       </div>
                     </TableCell>

@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Product } from "@shared/schema";
 import Navbar from "@/components/layout/navbar";
 import Sidebar from "@/components/layout/sidebar";
-import { Loader2, AlertTriangle, Heart, Trash } from "lucide-react";
+import { Loader2, AlertTriangle, Heart, Trash, Package } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -134,25 +134,29 @@ export default function WishlistPage() {
             <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {wishlist.map((item) => (
                 <Card key={item.id} className="overflow-hidden flex flex-col">
-                  {item.product.imageUrl && (
-                    <div className="aspect-[4/3] relative overflow-hidden bg-gray-100">
+                  <div className="aspect-[4/3] relative overflow-hidden bg-gray-100">
+                    {item.product.imageUrl ? (
                       <img 
                         src={item.product.imageUrl}
                         alt={item.product.name}
                         className="object-cover w-full h-full transition-transform hover:scale-105"
                       />
-                      {item.product.stock === 0 && (
-                        <div className="absolute top-2 right-2">
-                          <Badge variant="destructive">Out of Stock</Badge>
-                        </div>
-                      )}
-                      {item.product.stock > 0 && item.product.stock <= 5 && (
-                        <div className="absolute top-2 right-2">
-                          <Badge variant="secondary">Low Stock</Badge>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Package className="h-12 w-12 text-gray-400" />
+                      </div>
+                    )}
+                    {item.product.stock === 0 && (
+                      <div className="absolute top-2 right-2">
+                        <Badge variant="destructive">Out of Stock</Badge>
+                      </div>
+                    )}
+                    {item.product.stock > 0 && item.product.stock <= 5 && (
+                      <div className="absolute top-2 right-2">
+                        <Badge variant="secondary">Low Stock</Badge>
+                      </div>
+                    )}
+                  </div>
                   <CardHeader>
                     <CardTitle className="line-clamp-1">{item.product.name}</CardTitle>
                     <CardDescription className="flex justify-between items-center">

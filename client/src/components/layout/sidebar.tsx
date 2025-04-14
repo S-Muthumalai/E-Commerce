@@ -50,6 +50,11 @@ export default function Sidebar() {
       href: "/products"
     },
     {
+      icon: <Heart className="h-5 w-5" />,
+      label: "Wishlist",
+      href: "/wishlist"
+    },
+    {
       icon: <ShoppingCart className="h-5 w-5" />,
       label: "Orders",
       href: "/orders"
