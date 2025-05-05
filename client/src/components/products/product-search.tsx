@@ -39,7 +39,7 @@ export default function ProductSearch({
       <CardContent className="p-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="search">Search</Label>
+            {/* <Label htmlFor="search">Search</Label> */}
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
@@ -53,7 +53,7 @@ export default function ProductSearch({
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="category">Category</Label>
+            {/* <Label htmlFor="category">Category</Label> */}
             <Select value={categoryFilter} onValueChange={onCategoryChange}>
               <SelectTrigger id="category">
                 <SelectValue placeholder="All Categories" />
@@ -70,7 +70,7 @@ export default function ProductSearch({
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="stock">Stock Status</Label>
+            {/* <Label htmlFor="stock">Stock Status</Label> */}
             <Select value={stockFilter} onValueChange={onStockChange}>
               <SelectTrigger id="stock">
                 <SelectValue placeholder="All Stock Status" />

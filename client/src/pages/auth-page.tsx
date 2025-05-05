@@ -4,7 +4,6 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { useAuth } from "@/hooks/use-auth";
 import { Redirect } from "wouter";
-
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -28,6 +27,8 @@ const loginSchema = z.object({
 const registerSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
   password: z.string().min(6, "Password must be at least 6 characters"),
+  email: z.string(),
+  phone: z.string(),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
@@ -55,23 +56,26 @@ export default function AuthPage() {
       username: "",
       password: "",
       confirmPassword: "",
+      phone: "",
+      email: "",
     },
   });
-
   const onLoginSubmit = (data: LoginForm) => {
     loginMutation.mutate(data);
   };
-
   const onRegisterSubmit = (data: RegisterForm) => {
     const { confirmPassword, ...rest } = data;
     registerMutation.mutate({ ...rest, isAdmin: false });
   };
-
-  // Redirect if user is already logged in
-  if (user) {
-    return <Redirect to="/" />;
+  if(user){
+    if (user?.isMiddleman && !user.isAdmin) {
+      return <Redirect to="/middleman" />;
+    }
+    if (user?.isAdmin) {
+      return <Redirect to="/" />;
+    }
+    return <Redirect to="/customer"/>;
   }
-
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="max-w-6xl w-full grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -105,19 +109,16 @@ export default function AuthPage() {
             </ul>
           </div>
         </div>
-
         <div className="flex flex-col justify-center">
           <div className="flex justify-center mb-6 md:hidden">
             <Store className="h-10 w-10 text-primary" />
             <h1 className="text-2xl font-bold ml-2 text-primary">ShopManager</h1>
           </div>
-          
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid grid-cols-2 w-full mb-6">
               <TabsTrigger value="login">Login</TabsTrigger>
               <TabsTrigger value="register">Register</TabsTrigger>
             </TabsList>
-            
             <TabsContent value="login">
               <Card>
                 <CardHeader>
@@ -169,7 +170,6 @@ export default function AuthPage() {
                 </Form>
               </Card>
             </TabsContent>
-            
             <TabsContent value="register">
               <Card>
                 <CardHeader>
@@ -189,6 +189,32 @@ export default function AuthPage() {
                             <FormLabel>Username</FormLabel>
                             <FormControl>
                               <Input placeholder="Choose a username" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={registerForm.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Email</FormLabel>
+                            <FormControl>
+                              <Input type="email" placeholder="Enter your email" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={registerForm.control}
+                        name="phone"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Phone</FormLabel>
+                            <FormControl>
+                              <Input type="tel" placeholder="Enter your phone number" {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>

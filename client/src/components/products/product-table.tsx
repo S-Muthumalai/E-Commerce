@@ -199,19 +199,6 @@ export default function ProductTable({
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => handleAddToWishlist(product.id)}
-                          className={addToWishlistMutation.isPending && addToWishlistMutation.variables === product.id ? "opacity-50" : ""}
-                          disabled={addToWishlistMutation.isPending && addToWishlistMutation.variables === product.id}
-                        >
-                          {addToWishlistMutation.isPending && addToWishlistMutation.variables === product.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Heart className="h-4 w-4 text-red-500" />
-                          )}
-                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -220,28 +207,6 @@ export default function ProductTable({
             </TableBody>
           </Table>
         </div>
-
-        {!isLoading && products.length > 0 && (
-          <div className="flex items-center justify-end p-4">
-            <div className="flex items-center space-x-2">
-              <Button variant="outline" size="sm" disabled>
-                Previous
-              </Button>
-              <Button variant="outline" size="sm" className="bg-primary text-white">
-                1
-              </Button>
-              <Button variant="outline" size="sm">
-                2
-              </Button>
-              <Button variant="outline" size="sm">
-                3
-              </Button>
-              <Button variant="outline" size="sm">
-                Next
-              </Button>
-            </div>
-          </div>
-        )}
       </CardContent>
     </Card>
   );

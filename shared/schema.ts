@@ -1,20 +1,23 @@
 import { pgTable, text, serial, integer, boolean, doublePrecision, timestamp, primaryKey, pgEnum } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
+import { sql } from "drizzle-orm";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
-
 // User schema
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   email: text("email"),
+  phone: text("phone"),
   isAdmin: boolean("is_admin").notNull().default(false),
+  isMiddleman: boolean("is_middlman").notNull().default(false),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
+  phone: true,
   email: true, 
   isAdmin: true,
 });
@@ -74,11 +77,13 @@ export const orders = pgTable("orders", {
   userId: integer("user_id").notNull().references(() => users.id),
   total: doublePrecision("total").notNull(),
   status: orderStatusEnum("status").default('pending').notNull(),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
+  createdAt: timestamp("create_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   shippingAddress: text("shipping_address"),
-  paymentMethod: text("payment_method"),
-  trackingNumber: text("tracking_number"),
+  deliveryDate: timestamp("delivery_date").notNull(),
+  middlemanId: integer("middleman_id").references(() => users.id),
+  // paymentMethod: text("payment_method"),
+  trackingNumber: text("payment_tracking_number").notNull(),
 });
 
 export const insertOrderSchema = createInsertSchema(orders).pick({
@@ -86,7 +91,8 @@ export const insertOrderSchema = createInsertSchema(orders).pick({
   total: true,
   status: true,
   shippingAddress: true,
-  paymentMethod: true,
+  middlemanId: true,
+  deliveryDate: true,
   trackingNumber: true,
 });
 

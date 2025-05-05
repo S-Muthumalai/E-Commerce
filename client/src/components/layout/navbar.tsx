@@ -9,27 +9,27 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Store, User, Settings, LogOut } from "lucide-react";
-
 export default function Navbar() {
   const { user, logoutMutation } = useAuth();
   
   const handleLogout = () => {
     logoutMutation.mutate();
+    window.location.href = "/auth";
   };
   
   return (
     <nav className="bg-primary text-white py-2 px-4 flex items-center justify-between shadow-md">
       <div className="flex items-center space-x-2">
         <Store className="h-6 w-6" />
-        <span className="text-xl font-bold">ShopManager</span>
+        <span className="text-xl font-bold">E-Shop</span>
       </div>
       
-      <div className="hidden md:flex items-center space-x-6">
+      {/* <div className="hidden md:flex items-center space-x-6">
         <a href="#" className="text-white hover:text-white/80">Dashboard</a>
         <a href="#" className="text-white/70 hover:text-white">Products</a>
         <a href="#" className="text-white/70 hover:text-white">Orders</a>
         <a href="#" className="text-white/70 hover:text-white">Customers</a>
-      </div>
+      </div> */}
       
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

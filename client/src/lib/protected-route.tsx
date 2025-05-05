@@ -1,33 +1,27 @@
 import { useAuth } from "@/hooks/use-auth";
-import { Loader2 } from "lucide-react";
 import { Redirect, Route } from "wouter";
 
 export function ProtectedRoute({
-  path,
   component: Component,
+  path,
+  requiredRole,
 }: {
+  component: React.ComponentType<any>;
   path: string;
-  component: () => React.JSX.Element;
+  requiredRole?: "admin" | "user" | "middleman";
 }) {
-  const { user, isLoading } = useAuth();
-
-  if (isLoading) {
-    return (
-      <Route path={path}>
-        <div className="flex items-center justify-center min-h-screen">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      </Route>
-    );
-  }
-
+  const { user } = useAuth();
+  // console.log("ProtectedRoute user", user);
   if (!user) {
-    return (
-      <Route path={path}>
-        <Redirect to="/auth" />
-      </Route>
-    );
+    return <Redirect to="/auth" />;
   }
-
+  console.log(requiredRole === "middleman" && !user.isMiddleman);
+  if (requiredRole === "middleman" && !user.isMiddleman) {
+    return <Redirect to="/unauthorized" />;
+  }
+  if (requiredRole === "admin" && !user.isAdmin) {
+    console.log("ProtectedRoute user are not allowed", user);
+    return <Redirect to="/unauthorized" />;
+  }
   return <Route path={path} component={Component} />;
 }

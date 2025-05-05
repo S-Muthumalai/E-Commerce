@@ -15,6 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Link } from "wouter";
 import {
   Tooltip,
   TooltipContent,
@@ -40,6 +41,7 @@ interface WishlistItem {
   userId: number;
   productId: number;
   product: Product;
+  user:string;
 }
 
 export default function WishlistPage() {
@@ -102,14 +104,11 @@ export default function WishlistPage() {
       </div>
     );
   }
-
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Navbar />
-      
       <div className="flex flex-1">
         <Sidebar />
-        
         <main className="flex-1 p-4 md:p-6 overflow-auto">
           <div className="mb-6">
             <div className="flex items-center gap-2">
@@ -133,6 +132,7 @@ export default function WishlistPage() {
           ) : (
             <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {wishlist.map((item) => (
+                
                 <Card key={item.id} className="overflow-hidden flex flex-col">
                   <div className="aspect-[4/3] relative overflow-hidden bg-gray-100">
                     {item.product.imageUrl ? (
@@ -171,7 +171,10 @@ export default function WishlistPage() {
                   </CardContent>
                   <CardFooter className="flex justify-between border-t pt-4">
                     <Button asChild variant="outline">
-                      <a href={`/products/${item.product.id}`}>View Details</a>
+                    <Link
+                     to={`/product-detail/${item.id}`} // Redirect to product details page
+                     key={item.id}
+                     >View Details</Link>
                     </Button>
                     <TooltipProvider>
                       <Tooltip>

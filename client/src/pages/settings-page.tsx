@@ -30,6 +30,13 @@ const emailSettingsSchema = z.object({
     .min(5, { message: "Email must be at least 5 characters" })
     .max(100, { message: "Email must be less than 100 characters" }),
 });
+const phoneSettingsSchema = z.object({
+  phone: z
+    .string()
+    .regex(/^\+?[1-9]\d{1,14}$/, "Please enter a valid phone number")
+    .min(10, { message: "Phone number must be at least 10 digits" })
+    .max(15, { message: "Phone number must be less than 15 digits" }),
+});
 
 export default function SettingsPage() {
   const { user, isLoading: isUserLoading } = useAuth();
@@ -65,6 +72,35 @@ export default function SettingsPage() {
     },
   });
 
+  
+  // Phone settings form
+  const phoneForm = useForm<z.infer<typeof phoneSettingsSchema>>({
+    resolver: zodResolver(phoneSettingsSchema),
+    defaultValues: {
+      phone: user?.phone || "",
+    },
+  });
+  // Update phone mutation
+  const updatePhoneMutation = useMutation({
+    mutationFn: async (data: { phone: string }) => {
+      const res = await apiRequest("PUT", "/api/user/phone", data);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      toast({
+        title: "Phone number updated",
+        description: "Your phone number has been updated successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to update phone number",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  }); 
   // Form submission handler
   const onSubmit = (data: z.infer<typeof emailSettingsSchema>) => {
     updateEmailMutation.mutate(data);
@@ -132,7 +168,46 @@ export default function SettingsPage() {
                 </Form>
               </CardContent>
             </Card>
-
+            <Card>
+              <CardHeader>
+                <CardTitle>Phone Preferences</CardTitle>
+                <CardDescription>
+                  Update your phone number to receive SMS notifications for price drops
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Form {...phoneForm}>
+                  <form onSubmit={phoneForm.handleSubmit((data) => updatePhoneMutation.mutate(data))} className="space-y-4">
+                    <FormField
+                      control={phoneForm.control}
+                      name="phone"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Phone Number</FormLabel>
+                          <FormControl>
+                            <Input placeholder="+1234567890" {...field} />
+                          </FormControl>
+                          <FormDescription>
+                            We'll use this phone number to send you SMS notifications about price drops.
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <Button 
+                      type="submit" 
+                      disabled={updatePhoneMutation.isPending}
+                      className="w-full sm:w-auto"
+                    >
+                      {updatePhoneMutation.isPending && (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      )}
+                      Save Changes
+                    </Button>
+                  </form>
+                </Form>
+              </CardContent>
+            </Card>
             <Card>
               <CardHeader>
                 <CardTitle>Notification Settings</CardTitle>

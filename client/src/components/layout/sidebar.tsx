@@ -4,21 +4,21 @@ import {
   ShoppingCart,
   Users,
   BarChart3,
-  Tag,
-  Bell,
+  UserCog,
   Settings,
-  Heart
+  Heart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link, useLocation } from "wouter";
-
+import { useAuth } from "@/hooks/use-auth";
+import { useCart } from "@/hooks/cartContext";
+import { useEffect, useState } from "react";
 interface SidebarItemProps {
   icon: React.ReactNode;
   label: string;
   href: string;
   active?: boolean;
 }
-
 function SidebarItem({ icon, label, href, active }: SidebarItemProps) {
   return (
     <Link href={href}>
@@ -34,26 +34,26 @@ function SidebarItem({ icon, label, href, active }: SidebarItemProps) {
     </Link>
   );
 }
-
 export default function Sidebar() {
   const [location] = useLocation();
-  
-  const items = [
-    {
-      icon: <LayoutDashboard className="h-5 w-5" />,
-      label: "Dashboard",
-      href: "/"
-    },
-    {
-      icon: <Package className="h-5 w-5" />,
-      label: "Products",
-      href: "/products"
-    },
-    {
-      icon: <Heart className="h-5 w-5" />,
-      label: "Wishlist",
-      href: "/wishlist"
-    },
+  const { cartCount } = useCart();
+  const { user } = useAuth() as { user: { id: number; username: string; password: string; email: string | null; isAdmin: boolean } };
+  const isAdmin = user?.isAdmin === true;
+  useEffect(() => {
+    const fetchCartItems = async () => {
+      try {
+        const response = await fetch("/api/cart");
+        if (!response.ok) {
+          throw new Error("Failed to fetch cart items");
+        }
+        const data = await response.json();
+      } catch (error) {
+        console.error("Error fetching cart items:", error);
+      }
+    };
+    fetchCartItems();
+  }, []);
+  const adminItems = [
     {
       icon: <ShoppingCart className="h-5 w-5" />,
       label: "Orders",
@@ -70,14 +70,26 @@ export default function Sidebar() {
       href: "/analytics"
     },
     {
-      icon: <Tag className="h-5 w-5" />,
-      label: "Discounts",
-      href: "/discounts"
+      icon: <UserCog className="h-5 w-5" />,
+      label: "Middleman",
+      href: "/middleman"
+    }
+  ];
+  const userItems = [
+    {
+      icon: <ShoppingCart className="h-5 w-5" />,
+      label: `Cart (${cartCount})`, 
+      href: "/cart"
     },
     {
-      icon: <Bell className="h-5 w-5" />,
-      label: "Notifications",
-      href: "/notifications"
+      icon: <Package className="h-5 w-5" />,
+      label: "My Orders",
+      href: "/myorder"
+    },
+    {
+      icon: <Heart className="h-5 w-5" />,
+      label: "Wishlist",
+      href: "/wishlist"
     },
     {
       icon: <Settings className="h-5 w-5" />,
@@ -85,7 +97,14 @@ export default function Sidebar() {
       href: "/settings"
     }
   ];
-  
+  const commonItems = [
+    {
+      icon: <LayoutDashboard className="h-5 w-5" />,
+      label: "Dashboard",
+      href: "/customer"
+    }
+  ];
+  const items = [...commonItems, ...(isAdmin ? adminItems : userItems)];
   return (
     <aside className="hidden md:flex flex-col w-64 bg-white border-r p-4 space-y-2">
       <div className="space-y-2">

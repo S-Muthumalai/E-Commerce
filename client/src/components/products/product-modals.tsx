@@ -29,6 +29,8 @@ import { format } from "date-fns";
 interface AddProductModalProps {
   isOpen: boolean;
   onClose: () => void;
+  activeTab: "form" | "json"; 
+  onTabChange: (tab: "form" | "json") => void;
 }
 
 interface EditProductModalProps {

@@ -1,0 +1,5 @@
+customer
+analytics
+after product update => getwishlist => where user!=admin & !=middleman =>find the phonenumber =>send the message
+out of stock => then product is available 
+pricedrop => the product is in lower price take an advanges 
